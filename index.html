@@ -248,8 +248,7 @@ function parent(){
   <div class="panel"><h3 style="margin-top:0">בוצע היום</h3>${completions.filter(c=>c.date===t).sort((a,b)=>b.timestamp-a.timestamp).map(row).join('')||'<p class="muted">עדיין אין</p>'}
   <div class="row"><button class="danger" onclick="resetDay()">🔄 איפוס היום</button></div></div>`;
  } else if(parentTab==='history'){
-  const list=completions.slice().sort((a,b)=>b.timestamp-a.timestamp).slice(0,200);
-  pc.innerHTML=`<div class="panel">${list.map(c=>`<div class="muted" style="font-size:.9rem">${c.date}</div>`+row(c)).join('')||'<p class="muted">אין היסטוריה</p>'}</div>`;
+  pc.innerHTML=historyHTML();
  } else if(parentTab==='chores'){
   pc.innerHTML=`<div class="panel"><p class="muted" style="margin-top:0">סמנו לאיזה ילד כל משימה מתאימה (נטע בת 4.5 – רק משימות פשוטות ובטוחות).</p>${chores.map(c=>`<div class="row">
    <input type="text" style="width:60px;text-align:center" value="${esc(c.icon||'')}" onchange="editC('${c.id}','icon',this.value)">
@@ -267,6 +266,21 @@ function parent(){
   <button class="danger" onclick="if(confirm('להחזיר את רשימת המשימות לברירת מחדל?')){chores=DEFAULT_CHORES;persist();parent()}">משימות ברירת מחדל</button></div></div>`;
  }
 }
+function hDate(s){const[y,m,d]=s.split('-').map(Number);const dt=new Date(y,m-1,d);const days=['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];return `יום ${days[dt.getDay()]} ${d}.${m}.${y}`}
+function dAgo(n){const d=new Date();d.setDate(d.getDate()-n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function historyHTML(){
+ if(!completions.length)return '<div class="panel"><p class="muted">אין היסטוריה</p></div>';
+ const wk=dAgo(6),done=completions.filter(c=>c.status==='done');
+ let h=`<div class="panel"><h3 style="margin-top:0">📊 סיכום כללי</h3>`+kids.map(k=>`<div class="row"><span class="grow">${k.avatar} <b>${esc(k.name)}</b></span><span>סה״כ: <span class="pts">${pts(k.id)}</span></span><span style="margin-inline-start:12px">השבוע: <span class="pts">${pts(k.id,c=>c.date>=wk)}</span></span></div>`).join('')+
+ `<div class="row"><span class="grow"><b>משימות שבוצעו (סה״כ)</b></span><b>${done.length}</b></div><div class="row"><span class="grow"><b>נקודות השבוע (7 ימים)</b></span><span class="pts">${done.filter(c=>c.date>=wk).reduce((s,c)=>s+c.points,0)}</span></div></div>`;
+ const dates=[...new Set(completions.map(c=>c.date))].sort().reverse().slice(0,60);
+ dates.forEach(dt=>{const day=completions.filter(c=>c.date===dt).sort((a,b)=>a.timestamp-b.timestamp);
+  const tot=day.filter(c=>c.status==='done').reduce((s,c)=>s+c.points,0);
+  h+=`<div class="panel"><h3 style="margin-top:0">📅 ${hDate(dt)}${dt===today()?' (היום)':''}</h3>`;
+  kids.forEach(k=>{const kc=day.filter(c=>c.kidId===k.id);if(!kc.length)return;h+=`<div style="margin:8px 0 4px;font-weight:bold">${k.avatar} ${esc(k.name)} – <span class="pts">${kc.filter(c=>c.status==='done').reduce((s,c)=>s+c.points,0)}</span> נק׳</div>`+kc.map(row).join('')});
+  const other=day.filter(c=>!kidById(c.kidId));if(other.length)h+=other.map(row).join('');
+  h+=`<div class="row" style="border-top:2px solid #eee;margin-top:6px"><span class="grow"><b>סה״כ ליום</b> (${day.filter(c=>c.status==='done').length} משימות)</span><span class="pts">${tot}</span></div></div>`});
+ return h}
 function row(c){const k=kidById(c.kidId)||{name:'?',avatar:''};const lbl={done:'אושר',pending:'ממתין',rejected:'נדחה'}[c.status];
  return `<div class="row"><span class="grow">${k.avatar} <b>${esc(k.name)}</b> – ${esc(c.choreName||(choreById(c.choreId)||{}).name||'')} <span class="pts">${c.points}</span></span><span class="badge b-${c.status}">${lbl}</span>
  ${c.status!=='done'?`<button class="ok" onclick="setSt('${c.id}','done')">✔ אשר</button>`:''}${c.status!=='rejected'?`<button class="danger" onclick="setSt('${c.id}','rejected')">✖ דחה</button>`:''}</div>`}
